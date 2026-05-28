@@ -1,7 +1,8 @@
 name: device_audio_query
 description: "A Flutter plugin to query audio files and their metadata from the device's storage. It provides an easy-to-use API for retrieving information about songs, albums, artists, and playlists, making it ideal for music player applications or any app that needs to access audio content on the device."
 version: 0.0.1
-homepage:
+homepage: https://app.bustify.dev
+repository: https://github.com/thomashandlag/device_audio_query
 
 environment:
   sdk: ^3.11.1
