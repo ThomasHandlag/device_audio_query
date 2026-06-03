@@ -23,7 +23,6 @@ allprojects {
 
 plugins {
     id("com.android.library")
-    id("kotlin-android")
 }
 
 android {
@@ -67,6 +66,12 @@ android {
                 }
             }
         }
+    }
+}
+
+kotlin {
+    compilerOptions {
+        jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17
     }
 }
 

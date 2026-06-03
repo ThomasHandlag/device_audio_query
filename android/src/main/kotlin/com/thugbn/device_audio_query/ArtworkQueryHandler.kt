@@ -46,7 +46,6 @@ class ArtworkQueryHandler(private val contentResolver: ContentResolver) {
             id,
         )
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            Log.d("ArtworkQueryHandler", "Loading thumbnail for audio ID $id")
             loadThumbnail(uri, size, format)
         } else {
             extractEmbeddedArt(uri, format)
