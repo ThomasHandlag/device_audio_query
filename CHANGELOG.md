@@ -1,5 +1,9 @@
 # CHANGELOGS
 
+## 0.0.2+1
+
+** Fix: use higher api on lower device api
+
 ## 0.0.2
 
 ** Refactor: migrate to built-in kotlin
