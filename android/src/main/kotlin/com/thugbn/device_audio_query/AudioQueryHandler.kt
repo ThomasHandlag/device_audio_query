@@ -43,24 +43,44 @@ class AudioQueryHandler(private val contentResolver: ContentResolver) {
         val selection = buildSelection(path)
         val selectionArgs = if (path != null) arrayOf("$path%") else null
 
-        val projection = arrayOf(
-            MediaStore.Audio.Media._ID,
-            MediaStore.Audio.Media.TITLE,
-            MediaStore.Audio.Media.ARTIST,
-            MediaStore.Audio.Media.ARTIST_ID,
-            MediaStore.Audio.Media.ALBUM,
-            MediaStore.Audio.Media.ALBUM_ID,
-            MediaStore.Audio.Media.DURATION,
-            MediaStore.Audio.Media.SIZE,
-            MediaStore.Audio.Media.DATA,
-            MediaStore.Audio.Media.TRACK,
-            MediaStore.Audio.Media.YEAR,
-            MediaStore.Audio.Media.DATE_ADDED,
-            MediaStore.Audio.Media.DATE_MODIFIED,
-            MediaStore.Audio.Media.MIME_TYPE,
-            MediaStore.Audio.Media.DISPLAY_NAME,
-            MediaStore.Audio.Media.BITRATE,
-        )
+        val projection = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            arrayOf(
+                MediaStore.Audio.Media._ID,
+                MediaStore.Audio.Media.TITLE,
+                MediaStore.Audio.Media.ARTIST,
+                MediaStore.Audio.Media.ARTIST_ID,
+                MediaStore.Audio.Media.ALBUM,
+                MediaStore.Audio.Media.ALBUM_ID,
+                MediaStore.Audio.Media.DURATION,
+                MediaStore.Audio.Media.SIZE,
+                MediaStore.Audio.Media.DATA,
+                MediaStore.Audio.Media.TRACK,
+                MediaStore.Audio.Media.YEAR,
+                MediaStore.Audio.Media.DATE_ADDED,
+                MediaStore.Audio.Media.DATE_MODIFIED,
+                MediaStore.Audio.Media.MIME_TYPE,
+                MediaStore.Audio.Media.DISPLAY_NAME,
+                "bitrate",
+            )
+        } else {
+            arrayOf(
+                MediaStore.Audio.Media._ID,
+                MediaStore.Audio.Media.TITLE,
+                MediaStore.Audio.Media.ARTIST,
+                MediaStore.Audio.Media.ARTIST_ID,
+                MediaStore.Audio.Media.ALBUM,
+                MediaStore.Audio.Media.ALBUM_ID,
+                MediaStore.Audio.Media.DURATION,
+                MediaStore.Audio.Media.SIZE,
+                MediaStore.Audio.Media.DATA,
+                MediaStore.Audio.Media.TRACK,
+                MediaStore.Audio.Media.YEAR,
+                MediaStore.Audio.Media.DATE_ADDED,
+                MediaStore.Audio.Media.DATE_MODIFIED,
+                MediaStore.Audio.Media.MIME_TYPE,
+                MediaStore.Audio.Media.DISPLAY_NAME,
+            )
+        }
 
         val results = mutableListOf<Map<String, Any?>>()
         val cursor: Cursor? = contentResolver.query(
@@ -72,45 +92,8 @@ class AudioQueryHandler(private val contentResolver: ContentResolver) {
         )
 
         cursor?.use {
-            val idCol = it.getColumnIndexOrThrow(MediaStore.Audio.Media._ID)
-            val titleCol = it.getColumnIndexOrThrow(MediaStore.Audio.Media.TITLE)
-            val artistCol = it.getColumnIndexOrThrow(MediaStore.Audio.Media.ARTIST)
-            val artistIdCol = it.getColumnIndexOrThrow(MediaStore.Audio.Media.ARTIST_ID)
-            val albumCol = it.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM)
-            val albumIdCol = it.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM_ID)
-            val durationCol = it.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION)
-            val sizeCol = it.getColumnIndexOrThrow(MediaStore.Audio.Media.SIZE)
-            val dataCol = it.getColumnIndexOrThrow(MediaStore.Audio.Media.DATA)
-            val trackCol = it.getColumnIndexOrThrow(MediaStore.Audio.Media.TRACK)
-            val yearCol = it.getColumnIndexOrThrow(MediaStore.Audio.Media.YEAR)
-            val dateAddedCol = it.getColumnIndexOrThrow(MediaStore.Audio.Media.DATE_ADDED)
-            val dateModifiedCol = it.getColumnIndexOrThrow(MediaStore.Audio.Media.DATE_MODIFIED)
-            val mimeCol = it.getColumnIndexOrThrow(MediaStore.Audio.Media.MIME_TYPE)
-            val bitrateCol = it.getColumnIndexOrThrow(MediaStore.Audio.Media.BITRATE)
-
             while (it.moveToNext()) {
-                val id = it.getLong(idCol)
-                val contentUri = ContentUris.withAppendedId(baseUri, id)
-                results.add(
-                    mapOf(
-                        "id" to id,
-                        "title" to it.getString(titleCol),
-                        "artist" to it.getString(artistCol),
-                        "artistId" to it.getLong(artistIdCol),
-                        "album" to it.getString(albumCol),
-                        "albumId" to it.getLong(albumIdCol),
-                        "duration" to it.getLong(durationCol),
-                        "size" to it.getLong(sizeCol),
-                        "data" to it.getString(dataCol),
-                        "uri" to contentUri.toString(),
-                        "trackNumber" to it.getInt(trackCol),
-                        "year" to it.getInt(yearCol),
-                        "dateAdded" to it.getLong(dateAddedCol),
-                        "dateModified" to it.getLong(dateModifiedCol),
-                        "mimeType" to it.getString(mimeCol),
-                        "bitrate" to it.getLong(bitrateCol),
-                    ),
-                )
+                results.add(cursorRowToMap(it))
             }
         }
         return results
@@ -123,9 +106,9 @@ class AudioQueryHandler(private val contentResolver: ContentResolver) {
         orderTypeIndex: Int,
     ): List<Map<String, Any?>> {
         val extraSelection = when (from) {
-            0 -> "${MediaStore.Audio.Media.ALBUM_ID} = $fromId"   // album
+            0 -> "${MediaStore.Audio.Albums.ALBUM_ID} = $fromId"   // album
             1 -> "${MediaStore.Audio.Media.ARTIST_ID} = $fromId"  // artist
-            3 -> "${MediaStore.Audio.Media.GENRE_ID} = $fromId"   // genre (API 30+)
+            3 -> "genre_id = $fromId"                             // genre (API 30+)
             else -> null
         }
 
@@ -181,25 +164,47 @@ class AudioQueryHandler(private val contentResolver: ContentResolver) {
 
     private fun cursorRowToMap(cursor: Cursor): Map<String, Any?> {
         fun col(name: String) = cursor.getColumnIndex(name)
-        val id = cursor.getLong(col(MediaStore.Audio.Media._ID))
+        val idCol = col(MediaStore.Audio.Media._ID)
+        val id = if (idCol != -1 && !cursor.isNull(idCol)) cursor.getLong(idCol) else 0L
         val baseUri = MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
+
+        fun getStringSafe(name: String): String? {
+            val idx = col(name)
+            return if (idx != -1 && !cursor.isNull(idx)) cursor.getString(idx) else null
+        }
+        fun getLongSafe(name: String): Long {
+            val idx = col(name)
+            return if (idx != -1 && !cursor.isNull(idx)) cursor.getLong(idx) else 0L
+        }
+        fun getIntSafe(name: String): Int {
+            val idx = col(name)
+            return if (idx != -1 && !cursor.isNull(idx)) cursor.getInt(idx) else 0
+        }
+
+        val bitrate = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            val idx = col("bitrate")
+            if (idx != -1 && !cursor.isNull(idx)) cursor.getLong(idx) else null
+        } else {
+            null
+        }
+
         return mapOf(
             "id" to id,
-            "title" to cursor.getString(col(MediaStore.Audio.Media.TITLE)),
-            "artist" to cursor.getString(col(MediaStore.Audio.Media.ARTIST)),
-            "artistId" to cursor.getLong(col(MediaStore.Audio.Media.ARTIST_ID)),
-            "album" to cursor.getString(col(MediaStore.Audio.Media.ALBUM)),
-            "albumId" to cursor.getLong(col(MediaStore.Audio.Media.ALBUM_ID)),
-            "duration" to cursor.getLong(col(MediaStore.Audio.Media.DURATION)),
-            "size" to cursor.getLong(col(MediaStore.Audio.Media.SIZE)),
-            "data" to cursor.getString(col(MediaStore.Audio.Media.DATA)),
+            "title" to getStringSafe(MediaStore.Audio.Media.TITLE),
+            "artist" to getStringSafe(MediaStore.Audio.Media.ARTIST),
+            "artistId" to getLongSafe(MediaStore.Audio.Media.ARTIST_ID),
+            "album" to getStringSafe(MediaStore.Audio.Media.ALBUM),
+            "albumId" to getLongSafe(MediaStore.Audio.Media.ALBUM_ID),
+            "duration" to getLongSafe(MediaStore.Audio.Media.DURATION),
+            "size" to getLongSafe(MediaStore.Audio.Media.SIZE),
+            "data" to getStringSafe(MediaStore.Audio.Media.DATA),
             "uri" to ContentUris.withAppendedId(baseUri, id).toString(),
-            "trackNumber" to cursor.getInt(col(MediaStore.Audio.Media.TRACK)),
-            "year" to cursor.getInt(col(MediaStore.Audio.Media.YEAR)),
-            "dateAdded" to cursor.getLong(col(MediaStore.Audio.Media.DATE_ADDED)),
-            "dateModified" to cursor.getLong(col(MediaStore.Audio.Media.DATE_MODIFIED)),
-            "mimeType" to cursor.getString(col(MediaStore.Audio.Media.MIME_TYPE)),
-            "bitrate" to cursor.getLong(col(MediaStore.Audio.Media.BITRATE)),
+            "trackNumber" to getIntSafe(MediaStore.Audio.Media.TRACK),
+            "year" to getIntSafe(MediaStore.Audio.Media.YEAR),
+            "dateAdded" to getLongSafe(MediaStore.Audio.Media.DATE_ADDED),
+            "dateModified" to getLongSafe(MediaStore.Audio.Media.DATE_MODIFIED),
+            "mimeType" to getStringSafe(MediaStore.Audio.Media.MIME_TYPE),
+            "bitrate" to bitrate,
         )
     }
 

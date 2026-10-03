@@ -39,18 +39,23 @@ class ArtistQueryHandler(private val contentResolver: ContentResolver) {
         )
 
         cursor?.use {
-            val idCol = it.getColumnIndexOrThrow(MediaStore.Audio.Artists._ID)
-            val artistCol = it.getColumnIndexOrThrow(MediaStore.Audio.Artists.ARTIST)
-            val numAlbumsCol = it.getColumnIndexOrThrow(MediaStore.Audio.Artists.NUMBER_OF_ALBUMS)
-            val numTracksCol = it.getColumnIndexOrThrow(MediaStore.Audio.Artists.NUMBER_OF_TRACKS)
+            fun col(name: String) = it.getColumnIndex(name)
+            val idCol = col(MediaStore.Audio.Artists._ID)
+            val artistCol = col(MediaStore.Audio.Artists.ARTIST)
+            val numAlbumsCol = col(MediaStore.Audio.Artists.NUMBER_OF_ALBUMS)
+            val numTracksCol = col(MediaStore.Audio.Artists.NUMBER_OF_TRACKS)
+
+            fun getStringSafe(idx: Int) = if (idx != -1 && !it.isNull(idx)) it.getString(idx) else null
+            fun getLongSafe(idx: Int) = if (idx != -1 && !it.isNull(idx)) it.getLong(idx) else 0L
+            fun getIntSafe(idx: Int) = if (idx != -1 && !it.isNull(idx)) it.getInt(idx) else 0
 
             while (it.moveToNext()) {
                 results.add(
                     mapOf(
-                        "id" to it.getLong(idCol),
-                        "artist" to it.getString(artistCol),
-                        "numberOfAlbums" to it.getInt(numAlbumsCol),
-                        "numberOfTracks" to it.getInt(numTracksCol),
+                        "id" to getLongSafe(idCol),
+                        "artist" to getStringSafe(artistCol),
+                        "numberOfAlbums" to getIntSafe(numAlbumsCol),
+                        "numberOfTracks" to getIntSafe(numTracksCol),
                     ),
                 )
             }

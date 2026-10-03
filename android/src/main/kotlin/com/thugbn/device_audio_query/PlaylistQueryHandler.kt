@@ -1,7 +1,6 @@
 package com.thugbn.device_audio_query
 
 import android.content.ContentResolver
-import android.content.ContentUris
 import android.database.Cursor
 import android.provider.MediaStore
 
@@ -45,22 +44,27 @@ class PlaylistQueryHandler(private val contentResolver: ContentResolver) {
         )
 
         cursor?.use {
-            val idCol = it.getColumnIndexOrThrow(MediaStore.Audio.Playlists._ID)
-            val nameCol = it.getColumnIndexOrThrow(MediaStore.Audio.Playlists.NAME)
-            val dateAddedCol = it.getColumnIndexOrThrow(MediaStore.Audio.Playlists.DATE_ADDED)
-            val dateModifiedCol =
-                it.getColumnIndexOrThrow(MediaStore.Audio.Playlists.DATE_MODIFIED)
+            fun col(name: String) = it.getColumnIndex(name)
+            val idCol = col(MediaStore.Audio.Playlists._ID)
+            val nameCol = col(MediaStore.Audio.Playlists.NAME)
+            val dateAddedCol = col(MediaStore.Audio.Playlists.DATE_ADDED)
+            val dateModifiedCol = col(MediaStore.Audio.Playlists.DATE_MODIFIED)
+
+            fun getStringSafe(idx: Int) =
+                if (idx != -1 && !it.isNull(idx)) it.getString(idx) else null
+
+            fun getLongSafe(idx: Int) = if (idx != -1 && !it.isNull(idx)) it.getLong(idx) else 0L
 
             while (it.moveToNext()) {
-                val playlistId = it.getLong(idCol)
+                val playlistId = getLongSafe(idCol)
                 val memberCount = getMemberCount(playlistId)
                 results.add(
                     mapOf(
                         "id" to playlistId,
-                        "playlist" to it.getString(nameCol),
+                        "playlist" to getStringSafe(nameCol),
                         "numOfSongs" to memberCount,
-                        "dateAdded" to it.getLong(dateAddedCol),
-                        "dateModified" to it.getLong(dateModifiedCol),
+                        "dateAdded" to getLongSafe(dateAddedCol),
+                        "dateModified" to getLongSafe(dateModifiedCol),
                     ),
                 )
             }
@@ -89,22 +93,28 @@ class PlaylistQueryHandler(private val contentResolver: ContentResolver) {
         )
 
         cursor?.use {
-            val idCol = it.getColumnIndexOrThrow(MediaStore.Audio.Playlists.Members._ID)
-            val audioIdCol = it.getColumnIndexOrThrow(MediaStore.Audio.Playlists.Members.AUDIO_ID)
-            val playOrderCol =
-                it.getColumnIndexOrThrow(MediaStore.Audio.Playlists.Members.PLAY_ORDER)
-            val titleCol = it.getColumnIndexOrThrow(MediaStore.Audio.Playlists.Members.TITLE)
-            val artistCol = it.getColumnIndexOrThrow(MediaStore.Audio.Playlists.Members.ARTIST)
+            fun col(name: String) = it.getColumnIndex(name)
+            val idCol = col(MediaStore.Audio.Playlists.Members._ID)
+            val audioIdCol = col(MediaStore.Audio.Playlists.Members.AUDIO_ID)
+            val playOrderCol = col(MediaStore.Audio.Playlists.Members.PLAY_ORDER)
+            val titleCol = col(MediaStore.Audio.Playlists.Members.TITLE)
+            val artistCol = col(MediaStore.Audio.Playlists.Members.ARTIST)
+
+            fun getStringSafe(idx: Int) =
+                if (idx != -1 && !it.isNull(idx)) it.getString(idx) else null
+
+            fun getLongSafe(idx: Int) = if (idx != -1 && !it.isNull(idx)) it.getLong(idx) else 0L
+            fun getIntSafe(idx: Int) = if (idx != -1 && !it.isNull(idx)) it.getInt(idx) else 0
 
             while (it.moveToNext()) {
                 results.add(
                     mapOf(
-                        "id" to it.getLong(idCol),
+                        "id" to getLongSafe(idCol),
                         "playlistId" to playlistId,
-                        "audioId" to it.getLong(audioIdCol),
-                        "playOrder" to it.getInt(playOrderCol),
-                        "title" to it.getString(titleCol),
-                        "artist" to it.getString(artistCol),
+                        "audioId" to getLongSafe(audioIdCol),
+                        "playOrder" to getIntSafe(playOrderCol),
+                        "title" to getStringSafe(titleCol),
+                        "artist" to getStringSafe(artistCol),
                     ),
                 )
             }
@@ -114,7 +124,13 @@ class PlaylistQueryHandler(private val contentResolver: ContentResolver) {
 
     private fun getMemberCount(playlistId: Long): Int {
         val membersUri = MediaStore.Audio.Playlists.Members.getContentUri("external", playlistId)
-        val cursor = contentResolver.query(membersUri, arrayOf(MediaStore.Audio.Playlists.Members._ID), null, null, null)
+        val cursor = contentResolver.query(
+            membersUri,
+            arrayOf(MediaStore.Audio.Playlists.Members._ID),
+            null,
+            null,
+            null
+        )
         val count = cursor?.count ?: 0
         cursor?.close()
         return count

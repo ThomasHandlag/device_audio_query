@@ -2,6 +2,7 @@ package com.thugbn.device_audio_query
 
 import android.content.ContentResolver
 import android.database.Cursor
+import android.os.Build
 import android.provider.MediaStore
 
 private val ALBUM_SORT_COLUMNS = arrayOf(
@@ -23,15 +24,26 @@ class AlbumQueryHandler(private val contentResolver: ContentResolver) {
         }
         val sortOrder = if (orderTypeIndex == 0) "ASC" else "DESC"
 
-        val projection = arrayOf(
-            MediaStore.Audio.Albums._ID,
-            MediaStore.Audio.Albums.ALBUM,
-            MediaStore.Audio.Albums.ARTIST,
-            MediaStore.Audio.Albums.ARTIST_ID,
-            MediaStore.Audio.Albums.NUMBER_OF_SONGS,
-            MediaStore.Audio.Albums.ALBUM_ART,
-            MediaStore.Audio.Albums.LAST_YEAR,
-        )
+        val projection = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            arrayOf(
+                MediaStore.Audio.Albums._ID,
+                MediaStore.Audio.Albums.ALBUM,
+                MediaStore.Audio.Albums.ARTIST,
+                "artist_id",
+                MediaStore.Audio.Albums.NUMBER_OF_SONGS,
+                MediaStore.Audio.Albums.ALBUM_ART,
+                MediaStore.Audio.Albums.LAST_YEAR,
+            )
+        } else {
+            arrayOf(
+                MediaStore.Audio.Albums._ID,
+                MediaStore.Audio.Albums.ALBUM,
+                MediaStore.Audio.Albums.ARTIST,
+                MediaStore.Audio.Albums.NUMBER_OF_SONGS,
+                MediaStore.Audio.Albums.ALBUM_ART,
+                MediaStore.Audio.Albums.LAST_YEAR,
+            )
+        }
 
         val results = mutableListOf<Map<String, Any?>>()
         val cursor: Cursor? = contentResolver.query(
@@ -43,24 +55,31 @@ class AlbumQueryHandler(private val contentResolver: ContentResolver) {
         )
 
         cursor?.use {
-            val idCol = it.getColumnIndexOrThrow(MediaStore.Audio.Albums._ID)
-            val albumCol = it.getColumnIndexOrThrow(MediaStore.Audio.Albums.ALBUM)
-            val artistCol = it.getColumnIndexOrThrow(MediaStore.Audio.Albums.ARTIST)
-            val artistIdCol = it.getColumnIndexOrThrow(MediaStore.Audio.Albums.ARTIST_ID)
-            val numSongsCol = it.getColumnIndexOrThrow(MediaStore.Audio.Albums.NUMBER_OF_SONGS)
-            val albumArtCol = it.getColumnIndexOrThrow(MediaStore.Audio.Albums.ALBUM_ART)
-            val yearCol = it.getColumnIndexOrThrow(MediaStore.Audio.Albums.LAST_YEAR)
+            fun col(name: String) = it.getColumnIndex(name)
+            val idCol = col(MediaStore.Audio.Albums._ID)
+            val albumCol = col(MediaStore.Audio.Albums.ALBUM)
+            val artistCol = col(MediaStore.Audio.Albums.ARTIST)
+            val artistIdCol = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                col("artist_id")
+            } else -1
+            val numSongsCol = col(MediaStore.Audio.Albums.NUMBER_OF_SONGS)
+            val albumArtCol = col(MediaStore.Audio.Albums.ALBUM_ART)
+            val yearCol = col(MediaStore.Audio.Albums.LAST_YEAR)
+
+            fun getStringSafe(idx: Int) = if (idx != -1 && !it.isNull(idx)) it.getString(idx) else null
+            fun getLongSafe(idx: Int) = if (idx != -1 && !it.isNull(idx)) it.getLong(idx) else 0L
+            fun getIntSafe(idx: Int) = if (idx != -1 && !it.isNull(idx)) it.getInt(idx) else 0
 
             while (it.moveToNext()) {
                 results.add(
                     mapOf(
-                        "id" to it.getLong(idCol),
-                        "album" to it.getString(albumCol),
-                        "artist" to it.getString(artistCol),
-                        "artistId" to it.getLong(artistIdCol),
-                        "numOfSongs" to it.getInt(numSongsCol),
-                        "albumArtUri" to it.getString(albumArtCol),
-                        "year" to it.getInt(yearCol),
+                        "id" to getLongSafe(idCol),
+                        "album" to getStringSafe(albumCol),
+                        "artist" to getStringSafe(artistCol),
+                        "artistId" to if (artistIdCol != -1) getLongSafe(artistIdCol) else null,
+                        "numOfSongs" to getIntSafe(numSongsCol),
+                        "albumArtUri" to getStringSafe(albumArtCol),
+                        "year" to getIntSafe(yearCol),
                     ),
                 )
             }
