@@ -43,7 +43,7 @@ class AudioQueryHandler(private val contentResolver: ContentResolver) {
         val selection = buildSelection(path)
         val selectionArgs = if (path != null) arrayOf("$path%") else null
 
-        val projection = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+        val projection = if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
             arrayOf(
                 MediaStore.Audio.Media._ID,
                 MediaStore.Audio.Media.TITLE,
@@ -60,7 +60,6 @@ class AudioQueryHandler(private val contentResolver: ContentResolver) {
                 MediaStore.Audio.Media.DATE_MODIFIED,
                 MediaStore.Audio.Media.MIME_TYPE,
                 MediaStore.Audio.Media.DISPLAY_NAME,
-                "bitrate",
             )
         } else {
             arrayOf(
